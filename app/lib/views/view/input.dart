@@ -257,6 +257,7 @@ class _ViewportInputCoordinator {
         cursor: uiZoomPivot,
         runtime: cubit,
       );
+      _delayBakeUnlessSmooth(cubit.settingsCubit.state, input.delayBake);
       return;
     }
 
