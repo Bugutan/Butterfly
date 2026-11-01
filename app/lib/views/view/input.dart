@@ -347,7 +347,9 @@ class _ViewportInputCoordinator {
     _uiZoomPivot = null;
     _resetRulerInteraction();
 
-    if (!wasUiZoom && !wasRulerInteraction && _isHandlerGesture) {
+    if (wasUiZoom) {
+      input.delayBake();
+    } else if (!wasRulerInteraction && _isHandlerGesture) {
       await input.getHandler().onPointerUp(event, input.getEventContext());
     }
 
