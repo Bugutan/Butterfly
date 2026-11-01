@@ -103,10 +103,20 @@ class _ViewportInputCoordinator {
         (pointer) => _pointerKinds[pointer] == .touch,
       );
 
-  bool _isUiZoomInput(PointerDeviceKind kind, EventContext context) =>
-      context.isCtrlPressed &&
-      (kind == PointerDeviceKind.stylus || kind == PointerDeviceKind.mouse);
+  bool _isUiZoomInput(
+    PointerDeviceKind kind,
+    EventContext context,
+    Handler activeHandler,
+  ) {
+    // If a handler uses Ctrl for a shortcut disable Ctrl + Pointer Zoom 
+    if (activeHandler is SelectHandler || activeHandler is LabelHandler) {
+      return false;
+    }
 
+    return context.isCtrlPressed &&
+        (kind == PointerDeviceKind.stylus || kind == PointerDeviceKind.mouse);
+  }
+      
   bool _isCurrentInput(int generation) =>
       _context.mounted && generation == _inputGeneration;
 
@@ -185,7 +195,7 @@ class _ViewportInputCoordinator {
     final handler = getHandler();
     final eventContext = getEventContext();
 
-    if (_isUiZoomInput(event.kind, eventContext)) {
+    if (_isUiZoomInput(event.kind, eventContext, getHandler())) {
       _uiZoomPivots[event.pointer] = event.localPosition;
       return;
     }
