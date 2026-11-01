@@ -10,7 +10,8 @@ class _ViewportInputCoordinator {
   final Map<int, PointerDeviceKind> _pointerKinds = {};
   final PointerShortcutManager _shortcutManager = .new();
   int? _heldShortcutKeyId;
-  Offset? _uiZoomPivot;
+  // Pointers that started as a Ctrl zoom drag, with their pivot.
+  final Map<int, Offset> _uiZoomPivots = {};
   // Keep pointer and gesture callbacks in delivery order during tool changes.
   Lock _inputLock = .new();
   int _inputGeneration = 0;
@@ -49,7 +50,7 @@ class _ViewportInputCoordinator {
     _handlerHandlesScaleGesture = null;
     _gestureHandler = null;
     _heldShortcutKeyId = null;
-    _uiZoomPivot = null;
+    _uiZoomPivots.clear();
     _suppressScaleGesture = false;
   }
 
@@ -162,6 +163,7 @@ class _ViewportInputCoordinator {
       _settleSlide(cubit.transformCubit);
       _handlerHandlesScaleGesture = event.kind == .trackpad ? false : null;
       _suppressScaleGesture = false;
+      _uiZoomPivots.clear();
     }
     if (!skipShortcuts) {
       if (event.kind == .stylus || event.kind == .invertedStylus) {
@@ -184,10 +186,9 @@ class _ViewportInputCoordinator {
     final eventContext = getEventContext();
 
     if (_isUiZoomInput(event.kind, eventContext)) {
-      _uiZoomPivot = event.localPosition;
+      _uiZoomPivots[event.pointer] = event.localPosition;
       return;
     }
-    _uiZoomPivot = null;
 
     final ruler = RulerHandler.getInteractiveRuler(
       cubit.toolCubit.state,
@@ -248,7 +249,7 @@ class _ViewportInputCoordinator {
       return;
     }
 
-    final uiZoomPivot = _uiZoomPivot;
+    final uiZoomPivot = _uiZoomPivots[event.pointer];
     if (uiZoomPivot != null) {
       const zoomSensitivity = 0.005;
       final delta = 1.0 - (event.delta.dy * zoomSensitivity);
@@ -343,8 +344,7 @@ class _ViewportInputCoordinator {
     final wasRulerInteraction = _ruler != null;
     // Only a drag that started as a zoom skips the tool; the tool never got
     // its pointer down in that case.
-    final wasUiZoom = _uiZoomPivot != null;
-    _uiZoomPivot = null;
+    final wasUiZoom = _uiZoomPivots.remove(event.pointer) != null;
     _resetRulerInteraction();
 
     if (wasUiZoom) {
@@ -387,7 +387,7 @@ class _ViewportInputCoordinator {
     PointerCancelEvent event,
     EditorController cubit,
   ) => _withInputLock(() {
-    _uiZoomPivot = null;
+    _uiZoomPivots.remove(event.pointer);
     if (_cameraRotationGesture) {
       if (_rotationDrag?.pointer == event.pointer) _rotationDrag = null;
       cubit.inputCubit.removePointer(event.pointer);
@@ -436,7 +436,7 @@ class _ViewportInputCoordinator {
     final handler = input.getHandler();
     _gestureHandler = handler;
     final eventContext = input.getEventContext();
-    if (_uiZoomPivot != null) {
+    if (_uiZoomPivots.isNotEmpty) {
       _suppressScaleGesture = true;
       handler.onScaleStartAbort(details, eventContext);
       return;
